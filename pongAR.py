@@ -1,16 +1,19 @@
 # --- Import libraries used for this program
+#import os
  
 import math
 import pygame
+import pygame.camera
 import random
 import cv2
 import numpy as np
+
 
 # Define some colors
 BLACK = (0 ,0, 0)
 WHITE = (255, 255, 255)
  
- 
+pygame.camera.init()
 # This class represents the ball
 # It derives from the "Sprite" class in Pygame
 class Ball(pygame.sprite.Sprite):
@@ -93,7 +96,7 @@ class Ball(pygame.sprite.Sprite):
         # Do we bounce off the top of the screen?
         if self.y <= 0:
             self.direction = (180-self.direction)%360
-            print(self.direction)
+        
             #self.x=1
  
         # Do we bounce of the bottom of the screen?
@@ -122,37 +125,38 @@ class Player(pygame.sprite.Sprite):
         self.pid = pid
 
     # Update the player
-    def update(self):
+    def update(self, new_y):
 
-        if (event.type == pygame.KEYDOWN):
-            if (event.key == ord('q')):
-                pygame.quit()
+        # if (event.type == pygame.KEYDOWN):
+        #     if (event.key == ord('q')):
+        #         pygame.quit()
      
-        horiz_axis_pos = 0
+        # horiz_axis_pos = 0
 
-        if (self.pid == 0):
-            if (event.type == pygame.KEYDOWN):
-                if (event.key == pygame.K_UP):
-                    horiz_axis_pos = -1
+        # if (self.pid == 0):
+        #     if (event.type == pygame.KEYDOWN):
+        #         if (event.key == pygame.K_UP):
+        #             horiz_axis_pos = -1
 
-            if (event.type == pygame.KEYDOWN):
-                if (event.key == pygame.K_DOWN):
-                    horiz_axis_pos = 1
+        #     if (event.type == pygame.KEYDOWN):
+        #         if (event.key == pygame.K_DOWN):
+        #             horiz_axis_pos = 1
             
-            # Move x according to the axis. We multiply by 15 to speed up the movement.
-            self.rect.y=int(self.rect.y+horiz_axis_pos*15)
-        elif(self.pid == 1):
-            if (event.type == pygame.KEYDOWN):
-                if (event.key == ord('w')):
-                    horiz_axis_pos = -1
+        #     # Move x according to the axis. We multiply by 15 to speed up the movement.
+        #     self.rect.y=int(self.rect.y+horiz_axis_pos*15)
+        # elif(self.pid == 1):
+        #     if (event.type == pygame.KEYDOWN):
+        #         if (event.key == ord('w')):
+        #             horiz_axis_pos = -1
 
-            if (event.type == pygame.KEYDOWN):
-                if (event.key == ord('s')):
-                    horiz_axis_pos = 1
+        #     if (event.type == pygame.KEYDOWN):
+        #         if (event.key == ord('s')):
+        #             horiz_axis_pos = 1
             
-            # Move x according to the axis. We multiply by 15 to speed up the movement.
-            self.rect.y=int(self.rect.y+horiz_axis_pos*15)
 
+            # Move x according to the axis. We multiply by 15 to speed up the movement.
+        
+        self.rect.y=new_y
 
         # Make sure we don't push the player paddle off the right side of the screen
         if self.rect.y > self.screenheight - self.height:
@@ -201,12 +205,52 @@ movingsprites.add(ball)
 clock = pygame.time.Clock()
 done = False
 exit_program = False
- 
+
+camlist = pygame.camera.list_cameras()
+if camlist:
+    cam2 = pygame.camera.Camera(camlist[0],(640,480))
+
+cam = cv2.VideoCapture(0)
+gameStarted = False;
+cam2.start()
+
 while not exit_program:
-    
+    image= cam2.get_image()
+
+    ret, imgBGR = cam.read()
+    gray = cv2.cvtColor(imgBGR, cv2.COLOR_BGR2GRAY)
+    gray = cv2.bilateralFilter(gray, 11, 17, 17)
+    edged = cv2.Canny(gray, 30, 200)
+
+    cv2.imshow('image', imgBGR)
+    cv2.imshow('edged', edged)
+
+    (_, cnts, _) = cv2.findContours(edged.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = sorted(cnts, key = cv2.contourArea)[:10]
+    screenCnt = None
+
+    flag = False
+    for c in cnts:
+        peri = cv2.arcLength(c, True)
+        approx = cv2.approxPolyDP(c, 0.02 * peri, True)
+        if (len(approx) == 4):
+            flag = True
+            screenCnt = approx
+            break
+
+    if (flag):
+        if(~gameStarted):
+            newy = screenCnt[0][0][1]
+            gameStarted = True
+        else:
+            if(abs(screenCnt[0][0][1] - newy) < 50):
+                newy = screenCnt[0][0][1]            
+        scaledY = int(newy / 480 * 600)
+
+
     # Clear the screen
     screen.fill(BLACK)
- 
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             exit_program = True
@@ -217,12 +261,14 @@ while not exit_program:
  
     if not done:
         # Update the player and ball positions
-        player1.update()
-        player2.update()
+        if (flag):
+            player1.update(scaledY)
+            player2.update(scaledY)
         ball.update()
  
     # If we are done, print game over
     if done:
+        cam.release()
         text = font.render("Game Over", 1, (200, 200, 200))
         textpos = text.get_rect(centerx=background.get_width()/2)
         textpos.top = 50
