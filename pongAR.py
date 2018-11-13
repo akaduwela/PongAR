@@ -1,19 +1,18 @@
 # --- Import libraries used for this program
-#import os
  
 import math
 import pygame
-import pygame.camera
+#import pygame.camera
+#from pygame.locals import *
 import random
 import cv2
 import numpy as np
-
 
 # Define some colors
 BLACK = (0 ,0, 0)
 WHITE = (255, 255, 255)
  
-pygame.camera.init()
+ 
 # This class represents the ball
 # It derives from the "Sprite" class in Pygame
 class Ball(pygame.sprite.Sprite):
@@ -49,13 +48,16 @@ class Ball(pygame.sprite.Sprite):
         # Height and width of the ball
         self.width = 10
         self.height = 10
+
+        self.score1 = 0
+        self.score2 = 0
  
         # Set the initial ball speed and position
         self.reset()
  
     def reset(self):
-        self.y = random.randrange(50,550)
-        self.x = 400.0
+        self.y = random.randrange(80,400)
+        self.x = 300.0
         self.speed=8.0
  
         # Direction of ball (in degrees)
@@ -84,9 +86,11 @@ class Ball(pygame.sprite.Sprite):
         self.y -= self.speed * math.cos(direction_radians)
  
         if self.x < 0:
+            self.score1 += 1
             self.reset()
  
-        if self.x > 800:
+        if self.x > 600:
+            self.score2 += 1
             self.reset()
  
         # Move the image to where our x and y are
@@ -94,14 +98,15 @@ class Ball(pygame.sprite.Sprite):
         self.rect.y = self.y
  
         # Do we bounce off the top of the screen?
-        if self.y <= 0:
+        if self.y <= 30:
             self.direction = (180-self.direction)%360
-        
             #self.x=1
  
         # Do we bounce of the bottom of the screen?
-        if self.y > self.screenheight-self.height:
+        if self.y > self.screenheight-self.height-30:
             self.direction = (180-self.direction)%360
+
+        return self.rect.y
  
 # This class represents the bar at the bottom that the player controls
 class Player(pygame.sprite.Sprite):
@@ -125,11 +130,11 @@ class Player(pygame.sprite.Sprite):
         self.pid = pid
 
     # Update the player
-    def update(self, new_y):
+    def update(self, newY, ballpos=None):
 
-        # if (event.type == pygame.KEYDOWN):
-        #     if (event.key == ord('q')):
-        #         pygame.quit()
+        if (event.type == pygame.KEYDOWN):
+            if (event.key == ord('q')):
+                pygame.quit()
      
         # horiz_axis_pos = 0
 
@@ -152,11 +157,34 @@ class Player(pygame.sprite.Sprite):
         #     if (event.type == pygame.KEYDOWN):
         #         if (event.key == ord('s')):
         #             horiz_axis_pos = 1
-            
-
-            # Move x according to the axis. We multiply by 15 to speed up the movement.
         
-        self.rect.y=new_y
+
+
+        # determine from pid if cpu or player.
+        # given new paddle midpoint
+        # compute distance between ball and midpoint. divide by screen height. alpha value
+
+        if (self.pid == 1):
+
+            a = abs(newY - self.rect.y) / 420
+
+            if (self.rect.y > newY + 40):
+                self.rect.y = max(self.rect.y - (a*30), 35)
+            elif (self.rect.y < newY - 40):
+                self.rect.y = min(self.rect.y + (a*30), 440)
+
+            else:
+                self.rect.y = self.rect.y
+        else:
+            if (self.rect.y > ballpos + 15):
+                self.rect.y = max(self.rect.y - 20, 35)
+            elif (self.rect.y < ballpos - 15):
+                self.rect.y = min(self.rect.y + 20, 440)
+            else:
+                self.rect.y = self.rect.y 
+            # Move x according to the axis. We multiply by 15 to speed up the movement.
+        #self.rect.y = newY
+
 
         # Make sure we don't push the player paddle off the right side of the screen
         if self.rect.y > self.screenheight - self.height:
@@ -169,9 +197,10 @@ score2 = 0
  
 # Call this function so the Pygame library can initialize itself
 pygame.init()
+#pygame.camera.init()
  
 # Create an 800x600 sized screen
-screen = pygame.display.set_mode([800, 600])
+screen = pygame.display.set_mode([600, 480], pygame.FULLSCREEN)
  
 # Set the title of the window
 pygame.display.set_caption('Pong')
@@ -194,7 +223,7 @@ balls.add(ball)
 
 
 # Create the player paddle object
-player1 = Player(0, 780)
+player1 = Player(0, 580)
 player2 = Player(1, 25)
  
 movingsprites = pygame.sprite.Group()
@@ -205,30 +234,36 @@ movingsprites.add(ball)
 clock = pygame.time.Clock()
 done = False
 exit_program = False
-
-camlist = pygame.camera.list_cameras()
-if camlist:
-    cam2 = pygame.camera.Camera(camlist[0],(640,480))
-
+ 
 cam = cv2.VideoCapture(0)
-gameStarted = False;
-cam2.start()
+
+gameStarted = False
+newYprev = 240
 
 while not exit_program:
-    image= cam2.get_image()
+    
+    # Clear the screen
+    screen.fill(BLACK)
 
-    ret, imgBGR = cam.read()
-    gray = cv2.cvtColor(imgBGR, cv2.COLOR_BGR2GRAY)
-    gray = cv2.bilateralFilter(gray, 11, 17, 17)
-    edged = cv2.Canny(gray, 30, 200)
+    ret, queryImg = cam.read()
 
-    cv2.imshow('image', imgBGR)
-    cv2.imshow('edged', edged)
+    frame = np.rot90(queryImg)
+
+    Gray= cv2.cvtColor(queryImg, cv2.COLOR_BGR2GRAY)
+    Gray= cv2.bilateralFilter(Gray, 11, 17, 17)
+    edged = cv2.Canny(Gray, 30, 200)
+
+    edgedRot = np.rot90(edged)
+
+    frame = pygame.surfarray.make_surface(edgedRot)
+    screen.blit(frame, (0,0))
+ 
+
+
 
     (_, cnts, _) = cv2.findContours(edged.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     cnts = sorted(cnts, key = cv2.contourArea)[:10]
     screenCnt = None
-
     flag = False
     for c in cnts:
         peri = cv2.arcLength(c, True)
@@ -237,38 +272,30 @@ while not exit_program:
             flag = True
             screenCnt = approx
             break
-
     if (flag):
-        if(~gameStarted):
-            newy = screenCnt[0][0][1]
-            gameStarted = True
-        else:
-            if(abs(screenCnt[0][0][1] - newy) < 50):
-                newy = screenCnt[0][0][1]            
-        scaledY = int(newy / 480 * 600)
+        newy = (screenCnt[0][0][1] + screenCnt[2][0][1]) / 2
+        newYprev = newy
+    else:
+        newy = newYprev
 
-
-    # Clear the screen
-    screen.fill(BLACK)
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             exit_program = True
  
     # Stop the game if there is an imbalance of 3 points
-    if abs(score1 - score2) > 3:
+    if abs(ball.score1 - ball.score2) > 3:
         done = True
  
     if not done:
         # Update the player and ball positions
-        if (flag):
-            player1.update(scaledY)
-            player2.update(scaledY)
-        ball.update()
+        ballpos = ball.update()
+        player1.update(newy, ballpos)
+        player2.update(newy)
+        #ball.update()
  
     # If we are done, print game over
     if done:
-        cam.release()
         text = font.render("Game Over", 1, (200, 200, 200))
         textpos = text.get_rect(centerx=background.get_width()/2)
         textpos.top = 50
@@ -280,9 +307,9 @@ while not exit_program:
         diff = (player1.rect.y + player1.height/2) - (ball.rect.y+ball.height/2)
  
         # Set the ball's y position in case we hit the ball on the edge of the paddle
-        ball.x = 770
+        ball.x = 570
         ball.bounce(-1*diff)
-        score1 += 1
+        #hits1 += 1
  
     # See if the ball hits the player paddle
     if pygame.sprite.spritecollide(player2, balls, False):
@@ -292,18 +319,15 @@ while not exit_program:
         # Set the ball's y position in case we hit the ball on the edge of the paddle
         ball.x = 40
         ball.bounce(diff)
-        score2 += 1
+        #hits2 += 1
  
+
     # Print the score
-    scoreprint = "Player 1: "+str(score1)
+    scoreprint = str(ball.score2) + " : " + str(ball.score1)
     text = font.render(scoreprint, 1, WHITE)
-    textpos = (0, 0)
+    textpos = (285, 10)
     screen.blit(text, textpos)
  
-    scoreprint = "Player 2: "+str(score2)
-    text = font.render(scoreprint, 1, WHITE)
-    textpos = (300, 0)
-    screen.blit(text, textpos)
  
     # Draw Everything
     movingsprites.draw(screen)
@@ -311,6 +335,6 @@ while not exit_program:
     # Update the screen
     pygame.display.flip()
      
-    clock.tick(30)
+    clock.tick(60)
  
 pygame.quit()
