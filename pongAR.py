@@ -136,30 +136,6 @@ class Player(pygame.sprite.Sprite):
             if (event.key == ord('q')):
                 pygame.quit()
      
-        # horiz_axis_pos = 0
-
-        # if (self.pid == 0):
-        #     if (event.type == pygame.KEYDOWN):
-        #         if (event.key == pygame.K_UP):
-        #             horiz_axis_pos = -1
-
-        #     if (event.type == pygame.KEYDOWN):
-        #         if (event.key == pygame.K_DOWN):
-        #             horiz_axis_pos = 1
-            
-        #     # Move x according to the axis. We multiply by 15 to speed up the movement.
-        #     self.rect.y=int(self.rect.y+horiz_axis_pos*15)
-        # elif(self.pid == 1):
-        #     if (event.type == pygame.KEYDOWN):
-        #         if (event.key == ord('w')):
-        #             horiz_axis_pos = -1
-
-        #     if (event.type == pygame.KEYDOWN):
-        #         if (event.key == ord('s')):
-        #             horiz_axis_pos = 1
-        
-
-
         # determine from pid if cpu or player.
         # given new paddle midpoint
         # compute distance between ball and midpoint. divide by screen height. alpha value
@@ -220,7 +196,8 @@ ball = Ball()
 balls = pygame.sprite.Group()
 balls.add(ball)
  
-
+pygame.mixer.music.load('assets/mkmusic.mp3')
+pygame.mixer.music.play(-1)
 
 # Create the player paddle object
 player1 = Player(0, 580)
@@ -238,10 +215,32 @@ exit_program = False
 cam = cv2.VideoCapture(0)
 
 gameStarted = False
+start = False
 newYprev = 240
 
+screen.fill(BLACK)
+while (not start):
+    text = font.render("PongAR!", 1, (200, 200, 200))
+    textpos = text.get_rect(centerx=background.get_width()/2)
+    textpos.top = 50
+    screen.blit(text, textpos)
+
+    text2 = font.render("Press 's' to start!", 2, (200, 200, 200))
+    textpos2 = text2.get_rect(centerx=background.get_width()/2)
+    textpos2.top = 100
+    screen.blit(text2, textpos2)
+
+    # Update the screen
+    pygame.display.flip()
+
+    for event in pygame.event.get():
+        if (event.type == pygame.KEYDOWN):
+            if (event.key == ord('s')):
+                start = True
+
+
 while not exit_program:
-    
+
     # Clear the screen
     screen.fill(BLACK)
 
@@ -260,9 +259,9 @@ while not exit_program:
  
 
 
-
+    # find contours from edged image. If contour is a square, grab that square, find smallest square
     (_, cnts, _) = cv2.findContours(edged.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    cnts = sorted(cnts, key = cv2.contourArea)[:10]
+    cnts = sorted(cnts, key = cv2.contourArea)[-10:]
     screenCnt = None
     flag = False
     for c in cnts:
@@ -272,6 +271,8 @@ while not exit_program:
             flag = True
             screenCnt = approx
             break
+    
+    # find vertical position of square
     if (flag):
         newy = (screenCnt[0][0][1] + screenCnt[2][0][1]) / 2
         newYprev = newy
@@ -300,6 +301,13 @@ while not exit_program:
         textpos = text.get_rect(centerx=background.get_width()/2)
         textpos.top = 50
         screen.blit(text, textpos)
+        if (event.type == pygame.KEYDOWN):
+            if (event.key == ord('q')):
+                pygame.quit()
+            elif (event.key == ord('r')):
+                done = False
+                ball.score1 = 0
+                ball.score2 = 0
  
     # See if the ball hits the player paddle
     if pygame.sprite.spritecollide(player1, balls, False):
