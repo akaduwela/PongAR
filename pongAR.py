@@ -58,7 +58,7 @@ class Ball(pygame.sprite.Sprite):
     def reset(self):
         self.y = random.randrange(80,400)
         self.x = 300.0
-        self.speed=8.0
+        self.speed=10.0
  
         # Direction of ball (in degrees)
         self.direction = random.randrange(45,135)
@@ -145,17 +145,17 @@ class Player(pygame.sprite.Sprite):
             a = abs(newY - self.rect.y) / 420
 
             if (self.rect.y > newY + 40):
-                self.rect.y = max(self.rect.y - (a*30), 35)
+                self.rect.y = max(self.rect.y - (a*60), 35)
             elif (self.rect.y < newY - 40):
-                self.rect.y = min(self.rect.y + (a*30), 440)
+                self.rect.y = min(self.rect.y + (a*60), 440)
 
             else:
                 self.rect.y = self.rect.y
         else:
             if (self.rect.y > ballpos + 15):
-                self.rect.y = max(self.rect.y - 20, 35)
+                self.rect.y = max(self.rect.y - 15, 35)
             elif (self.rect.y < ballpos - 15):
-                self.rect.y = min(self.rect.y + 20, 440)
+                self.rect.y = min(self.rect.y + 15, 440)
             else:
                 self.rect.y = self.rect.y 
             # Move x according to the axis. We multiply by 15 to speed up the movement.
