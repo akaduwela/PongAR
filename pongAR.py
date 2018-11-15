@@ -285,7 +285,7 @@ while not exit_program:
             exit_program = True
  
     # Stop the game if there is an imbalance of 3 points
-    if abs(ball.score1 - ball.score2) > 3:
+    if (ball.score1 == 5) or (ball.score2 == 5):
         done = True
  
     if not done:
